@@ -14,6 +14,27 @@ jobs:
           java-version: |
             8
             17
+      - name: Fix obfuscated names
+        working-directory: MyauVapeStyle
+        run: |
+          python3 - <<'EOF'
+          import csv, io, re, urllib.request, zipfile, pathlib
+          url = "https://maven.minecraftforge.net/de/oceanlabs/mcp/mcp_stable/22-1.8.9/mcp_stable-22-1.8.9.zip"
+          z = zipfile.ZipFile(io.BytesIO(urllib.request.urlopen(url).read()))
+          m = {}
+          for n in ("fields.csv", "methods.csv"):
+              for row in csv.DictReader(io.TextIOWrapper(z.open(n), encoding="utf-8")):
+                  m[row["searge"]] = row["name"]
+          pat = re.compile(r"\b(?:func|field)_\d+_[A-Za-z_]+\b")
+          count = 0
+          for p in pathlib.Path("src").rglob("*.java"):
+              s = p.read_text(encoding="utf-8")
+              t = pat.sub(lambda x: m.get(x.group(0), x.group(0)), s)
+              if t != s:
+                  p.write_text(t, encoding="utf-8")
+                  count += 1
+          print("patched files:", count)
+          EOF
       - run: chmod +x gradlew
         working-directory: MyauVapeStyle
       - name: Build
@@ -23,7 +44,7 @@ jobs:
       - name: Show errors
         if: always()
         working-directory: MyauVapeStyle
-        run: grep -E -A3 "error:" build.log | head -120 || true
+        run: grep -E -A2 "error:" build.log | head -80 || true
       - uses: actions/upload-artifact@v4
         with:
           name: jar
